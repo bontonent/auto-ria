@@ -136,6 +136,7 @@ def get_data(url,headers):
         if have_car == 'Авто продане':
             sold_car = True
     if sold_car == False:
+        
         # Need add default items
         json_payload['params']["target"]= {}
         json_payload['params']["formId"]= 'null'

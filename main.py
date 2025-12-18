@@ -49,7 +49,7 @@ class main_auto_ria:
     # Pull data
     def pull_data(self):
         for data in self.datas:
-            connect.create_row(data)
+            connect.create_row(data, "/".join([str(self.base_dir),"dumps"]))
     
     def get_url_from_catalog(self):
         i_page = 0
@@ -81,6 +81,7 @@ class main_auto_ria:
                     print("find end")
                     break
             i_page = i_page+1
+            break
         
     def get_data_from_product_page(self):
         headers = self.update_headers()
