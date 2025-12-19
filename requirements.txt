@@ -6,3 +6,5 @@ tqdm
 psycopg2
 dotenv
 numpy
+uuid
+

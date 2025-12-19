@@ -7,14 +7,17 @@ services:
     restart: always
     environment:
       POSTGRES_DB: ${database}
-      POSTGRES_USER: ${user}
+      POSTGRES_USER: ${user} 
       POSTGRES_PASSWORD: ${password}
     ports:
-      - "5434:5432"
+      - "${port}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # AUTOMATIC TABLE CREATION:
+      - ./database/create_table.sql:/docker-entrypoint-initdb.d/create_table.sql
 
   app:
+    image: bontonent/auto_ria:latest
     build: .
     container_name: auto_ria_app
     depends_on:
@@ -22,9 +25,13 @@ services:
     env_file:
       - .env
     volumes:
-      - ./dumps:/app/dumps 
+      - .:/app 
     environment:
       - host=db
+      - database=${database}
+      - port=${sport}
+      - user=${user}
+      - password=${password}
 
 volumes:
   postgres_data:

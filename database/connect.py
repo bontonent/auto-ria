@@ -34,6 +34,10 @@ def write_sql_line(filename, table_name, columns, values):
         f.write(sql_row)
 
 def create_row(data_pull, base_dir):
+    # 1. Protect against NoneType data
+    if data_pull is None:
+        return
+
     today_time = datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%Y-%m-%d")
     conn = None
     
@@ -42,41 +46,42 @@ def create_row(data_pull, base_dir):
         cur = conn.cursor()
         
         id_car = str(uuid.uuid4())
-        # Use .get() with a default value to avoid ReferenceErrors
-        car_vin = data_pull.get('car_vin') or data_pull.get('car_vim') or None
+        
+        # Safer VIN check
+        car_vin = data_pull.get('car_vin') or data_pull.get('car_vim')
         
         car_cols = [
             "id", "url", "title", "price_usd", "odometer", 
             "username", "phone_number", "images_count", "car_number", "car_vin"
         ]
         
+        # Use defaults inside .get() to ensure correct data types
         car_vals = (
             id_car,
             data_pull.get('url'),
             data_pull.get('title'),
-            float(data_pull.get('price_usd', 0)) if data_pull.get('price_usd') else 0.0,
-            float(data_pull.get('odometer', 0)) if data_pull.get('odometer') else 0.0,
+            float(data_pull.get('price_usd', 0) or 0), # Handle empty strings or None
+            float(data_pull.get('odometer', 0) or 0),
             data_pull.get('username'),
             data_pull.get('phone_number'),
             data_pull.get('images_count', 0),
-            str(data_pull.get('car_number')),
+            str(data_pull.get('car_number', '')),
             car_vin
         )
 
-        # 1. Insert car with Conflict handling
+        # SQL execution...
         cur.execute(f"""
             INSERT INTO car ({', '.join(car_cols)})
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (price_usd, url) DO NOTHING
         """, car_vals)
 
+        # Check if row was actually inserted (not skipped by ON CONFLICT)
         if cur.rowcount > 0:
             image_list = data_pull.get('image_url', [])
             img_inserted_vals = []
 
-            # 2. Insert images only if car is new
             if image_list:
-                img_cols = ["id", "car_id", "image_url"]
                 for img_url in image_list:
                     id_img = str(uuid.uuid4())
                     cur.execute("""
@@ -89,8 +94,8 @@ def create_row(data_pull, base_dir):
                         img_inserted_vals.append((id_img, id_car, img_url))
 
             conn.commit()
-
-            # 3. Write SQL Dumps
+            
+            # Write dumps only for successful new inserts
             car_sql_path = os.path.join(base_dir, f"row_table_car_{today_time}.sql")
             write_sql_line(car_sql_path, "car", car_cols, car_vals)
             
@@ -99,11 +104,14 @@ def create_row(data_pull, base_dir):
                 for img_val in img_inserted_vals:
                     write_sql_line(img_sql_path, "car_images", ["id", "car_id", "image_url"], img_val)
         else:
+            # If nothing was inserted (duplicate found), we just rollback/close
             conn.rollback()
 
     except Exception as e:
         if conn: conn.rollback()
-        print(f"Database Error for {data_pull.get('url')}: {e}")
+        # Safe URL check for the print statement
+        err_url = data_pull.get('url') if isinstance(data_pull, dict) else "No Data"
+        print(f"Database Error for {err_url}: {e}")
     finally:
         if conn:
             cur.close()

@@ -1,8 +1,12 @@
+# text
+import json
+import re
+import numpy as np
+
 # parsing
 import requests
 from lxml import html
-import json
-import asyncio
+import time
 
 # visual load
 from tqdm import tqdm
@@ -18,9 +22,7 @@ from pathlib import Path
 # py script
 from car_page import product_page
 from database import connect
-import time
-import re
-import numpy as np
+
 
 from concurrent.futures import ThreadPoolExecutor
 
@@ -37,7 +39,7 @@ class main_auto_ria:
         # First page scraping
         self.i_page= 0
         # Finally page scraping
-        self.end_page = 10
+        self.end_page = 1
 
         # Get random User Agent
         self.base_dir = Path(__file__).resolve().parent
