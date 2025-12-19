@@ -9,6 +9,7 @@ import json
 def get_data_json(headers,payload):
     # every time same(change only payload)
     url = 'https://auto.ria.com/bff/final-page/public/auto/popUp/'
+    
     response = requests.post(url,headers = headers,data=json.dumps(payload))
     json_page = response.json()
 
@@ -33,5 +34,5 @@ if __name__ == "__main__":
         "content-type":"application/json"
     }
     answer = get_data_json(headers,payload)
-    print(answer)
+
 

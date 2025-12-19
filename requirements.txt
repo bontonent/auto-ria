@@ -1,0 +1,8 @@
+lxml
+requests
+pathlib
+pytz
+tqdm
+psycopg2
+dotenv
+numpy
