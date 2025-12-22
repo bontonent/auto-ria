@@ -24,19 +24,20 @@ from database import connect
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
-import asyncio
+
+from multiprocessing import Process, Queue, cpu_count
+import queue as _queue
 
 class main_auto_ria:
     def __init__(self):
         self.datas = []
         self.link_product_pages = []
-        
         #self.end_page = None
 
         # First page scraping
-        self.i_page= 30
+        self.i_page= 0
         # Finally page scraping
-        self.end_page = 40
+        self.end_page = 50
 
         # Get random User Agent
         self.base_dir = Path(__file__).resolve().parent
@@ -53,36 +54,79 @@ class main_auto_ria:
         return headers
     
     def main(self):
-        # parsing catalog
-        headers = self.update_headers()
+        q_catalog_product = Queue()
+        q_product_database = Queue()
 
         # Setting parsing product page
         max_workers=10
-        with ThreadPoolExecutor(max_workers) as executor:
-            for i in range(max_workers):
-                executor.submit(self.get_url_from_catalog,headers)
-        #make unique data
-        unique_link_product_pages = np.unique(self.link_product_pages)
-        self.link_product_pages = [[str(url.replace("\n","").strip())] for url in unique_link_product_pages]
+        number_workers = Process(target=self.get_url_from_catalog, args=(q_catalog_product,))
         
-        # parsing product_page
-        self.get_data_from_product_page()
-        # # save data in postgres
-        self.pull_data()
+        # Parsing product_page
+        proc_product_page = Process(target=self.get_data_from_product_page, args=(q_catalog_product, q_product_database,))
+        
+        # Pull data
+        proc_database = Process(target=self.pull_data, args=(q_product_database,))
+        
+        # Start all process
+        number_workers.start()
+        proc_product_page.start()
+        proc_database.start()
+
+        # Join all process(but stop themselve anyway)
+        number_workers.join()
+
+        # Start work process
+        proc_product_page.join()
+        proc_database.join()
 
     # Pull data
-    def pull_data(self):
-        for data in tqdm(self.datas):
-            connect.create_row(data, "/".join([str(self.base_dir),"dumps"]))
-    
-    def get_url_from_catalog(self,headers):
+    def pull_data(self, q_product_database):
+        finish_work = False
         while True:
+            items = []
+
+            try:
+                while True:
+                    item = q_product_database.get(timeout=0.5)
+                    if item == 'STOP':
+                        finish_work = True
+                        break      # don't append the sentinel
+                    items.append(item)
+            except _queue.Empty:
+                pass
+
+            for ite in items:
+                if ite is None:      # extra safety
+                    continue
+                # ensure ite is a dict (skip strings)
+                if isinstance(ite, str):
+                    print("Skipping string item (expected dict):", ite)
+                    continue
+                try:
+                    connect.create_row(ite, "/".join([str(self.base_dir),"dumps"]))
+                except Exception as e:
+                    print("DB save error:", e)
+
+            if finish_work:
+                print("finish pull data")
+                return
+
+            time.sleep(0.5)
+
+    
+    #def 
+    
+    def get_url_from_catalog(self, q_catalog_product):
+        while True:
+            # parsing catalog
+            headers = self.update_headers()
             payload = f"indexName=auto&page={self.i_page}"
             catalog_url = f"https://auto.ria.com/uk/search/?indexName=auto&page={self.i_page}"
             self.i_page = self.i_page+1
             if self.end_page == None:
                 None
             elif int(self.i_page) > int(self.end_page):
+                
                 break
 
             response = requests.get(catalog_url,headers = headers,data = json.dumps(payload))
@@ -112,7 +156,7 @@ class main_auto_ria:
                                         for fourth_template in fourth_templates:
                                             try:
                                                 link_product_page = fourth_template['component']['advertisementCard']['data']['link']
-                                                self.link_product_pages.append(str(link_product_page).split())
+                                                q_catalog_product.put(str(link_product_page).split())
                                             except:
                                                 None
             
@@ -123,8 +167,9 @@ class main_auto_ria:
                     self.end_page = self.i_page
                     break
             
-            print("Catalog page:",self.i_page-sleend_page," items get:",len(self.link_product_pages))
-
+            print("Catalog page:",self.i_page)
+        
+        q_catalog_product.put('STOP')
         
     def time_change(self, time_up: bool):
         # thread-safe update of timing based on history
@@ -173,7 +218,8 @@ class main_auto_ria:
                 time.sleep(backoff)
 
 
-    def get_data_from_product_page(self):
+    def get_data_from_product_page(self, q_catalog_product, q_product_database):
+        # make unique data
         headers = self.update_headers()
         
         max_workers = 3                 # max workers
@@ -181,35 +227,59 @@ class main_auto_ria:
         self.history_time = [3.0, 3.0, 3.0, 3.0]
         self._time_lock = getattr(self, "_time_lock", threading.Lock()) 
 
-        futures = {}
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for page_url_ar in self.link_product_pages:
-                page_url = page_url_ar[0]
-                futures[executor.submit(self._worker_with_retries, page_url)] = page_url
+        get_sentinel = False
+        while True:
+            items = []
+            
+            try:
+                while True:
+                    item = q_catalog_product.get(timeout=0.5)
+                    if item == 'STOP':
+                        get_sentinel = True
+                    else:
+                        for ite in item:
+                            items.append(ite)
+            except:
+                None
+            
+            if items != []:
+                link_product_pages = items
+                unique_link_product_pages = np.unique(link_product_pages)
+                link_product_pages = [[str(url.replace("\n","").strip())] for url in unique_link_product_pages]
 
-            # main thread: consume results and apply centralized pacing
-            for fut in tqdm(as_completed(futures), total=len(futures)):
-                src = futures.get(fut, "<unknown>")
-                try:
-                    result_data, one_retry = fut.result()  # worker handled retries/backoff
-                    if str(result_data) == 'break':
-                        raise ValueError("break signal")
-                    self.datas.append(result_data)
-                    # update pacing (thread-safe)
-                    self.time_change(one_retry)
-                except Exception as e:
-                    print(src, e)
+                futures = {}
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    for page_url_ar in link_product_pages:
+                        page_url = page_url_ar[0]
+                        futures[executor.submit(self._worker_with_retries, page_url)] = page_url
 
-                # centralized small pause in main thread only (keeps workers busy)
-                # choose a small, bounded pause to avoid excessive blocking of main thread
-                with self._time_lock:
-                    pause = max(0.01, min(1.0, self.time_at_the_moment / 4.0))
-                time.sleep(pause)
+                    # main thread: consume results and apply centralized pacing
+                    for fut in tqdm(as_completed(futures), total=len(futures)):
+                        src = futures.get(fut, "<unknown>")
+                        try:
+                            result_data, one_retry = fut.result()  # worker handled retries/backoff
+                            if str(result_data) == 'break':
+                                raise ValueError("break signal")
+                            q_product_database.put(result_data)
+                            
+                            # update pacing (thread-safe)
+                            self.time_change(one_retry)
+                        except Exception as e:
+                            print(src, e)
 
+                        # centralized small pause in main thread only (keeps workers busy)
+                        # choose a small, bounded pause to avoid excessive blocking of main thread
+                        with self._time_lock:
+                            pause = max(0.01, min(1.0, self.time_at_the_moment / 4.0))
+                        time.sleep(pause)
+            
+            if get_sentinel:
+                q_product_database.put('STOP')
+                
+                return
 
+            time.sleep(0.2)
 
-# Run
 if __name__ == '__main__':
     class_auto_ria = main_auto_ria()
     class_auto_ria.main()
-#asyncio.run(run_asyncio())   
