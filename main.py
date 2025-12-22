@@ -11,8 +11,7 @@ import time
 # visual load
 from tqdm import tqdm
 
-# treading
-#from concurrent.futures import ThreadPoolExecutor, as_completed
+
 
 # user agent random
 import random
@@ -23,23 +22,22 @@ from pathlib import Path
 from car_page import product_page
 from database import connect
 
-
+# treading
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from concurrent.futures import ThreadPoolExecutor
 
-from concurrent.futures import ProcessPoolExecutor, as_completed
-from multiprocessing import Manager
 
 class main_auto_ria:
     def __init__(self):
         self.datas = []
         self.link_product_pages = []
         
-        self.end_page = None
+        #self.end_page = None
 
         # First page scraping
         self.i_page= 0
         # Finally page scraping
-        self.end_page = 1
+        self.end_page = 10
 
         # Get random User Agent
         self.base_dir = Path(__file__).resolve().parent
@@ -65,6 +63,11 @@ class main_auto_ria:
         with ThreadPoolExecutor(max_workers) as executor:
             for i in range(max_workers):
                 executor.submit(self.get_url_from_catalog,headers)
+        
+        #make unique data
+        unique_link_product_pages = np.unique(self.link_product_pages)
+        self.link_product_pages = [[str(url.replace("\n","").strip())] for url in unique_link_product_pages]
+
         
         # parsing product_page
         self.get_data_from_product_page()
@@ -126,43 +129,95 @@ class main_auto_ria:
                     break
             
             print("Catalog page:",self.i_page-sleend_page," items get:",len(self.link_product_pages))
-            # fist_give = self.link_product_pages
-            # self.get_data_from_product_page(fist_give)
+
+    def time_change(self, history_time, time_up):
+        
+        if time_up:
+            time_step = 0,4
+        else:
+            time_step = -0,4
+        # if a lot of history we remove change time
+        change_step = len(history_time)/100
+        if change_step > 1:
+            step_time = time_step/change_step
+            history_el = -int(change_step/10)
+        else:
+            step_time = time_step
+            history_el = -2
+        all_time_sleep_max = 10
+        self.time_at_the_moment = np.average(history_time[history_el:])+step_time
+        if all_time_sleep_max <= self.time_at_the_moment:
+            all_time_sleep_max = self.time_at_the_moment
 
 
+    
     def get_data_from_product_page(self):
         headers = self.update_headers()
         # Setting get data from product page
 
         max_workers = 3     # speed
-        time_delay = 2      # don't longer than 2 seond on item
-        retries_work = 3    # for reload with error 429 how real people
-        futures = {}
+        retry_work = 1      # retry work
+        
 
+        # setting time sleep
+        time_delay = 2      # if delay time error thread
+        history_time = [5, 5, 5, 5]
+        self.time_at_the_moment = 5
+        
+        
+        
+        retries_work_break = 2    # for reload with error 429 how real human
+        time_delay_for_break = 0.01
+        at_the_moment_time = np.average(history_time)
+        
+
+        futures = {}
         # Treading
-        with ProcessPoolExecutor(max_workers) as process:
+        with ThreadPoolExecutor(max_workers) as thread:
             for page_url_ar in tqdm(self.link_product_pages):
                 page_url = page_url_ar[0]
-                futures[process.submit(product_page.get_data, page_url, headers)] = page_url
+                futures[thread.submit(product_page.get_data, page_url, headers)] = page_url
             for fut in tqdm(as_completed(futures),total=len(futures)):
+                
                 try:
                     src = futures[fut]
-                    time.sleep(0.4)
+                    time.sleep(self.time_at_the_moment/4)
                     result_data = fut.result(timeout=time_delay)
                     if str(result_data) == 'break':
                         raise ValueError('Error')
                     self.datas.append(result_data)
-                    time.sleep(0.4)
+                    time.sleep(self.time_at_the_moment/4)
+                    
+                    self.time_change(history_time,time_up=False)
                 except Exception as e:
                     print(src,e)
-
                     # if error try again
-                    time_delay_for_break = 0.01
-                    if retries_work > 0:    
-                        for n in range(retries_work):
+                    
+                    
+                    #retry work
+                    if retry_work > 0:
+                        for retry_work_n in range(retry_work):
+                            if retries_work_break > 0:    
+                                # break work for reload page
+                                for n in range(retries_work_break): # this kill reload funtion - reload retries times and kill thamselve
+                                    try:
+                                        headers = self.update_headers()
+                                        retry_res = thread.submit(product_page.get_data, src, headers).result(timeout=time_delay_for_break)
+                                        result_data = retry_res
+                                        if str(result_data) == 'break':
+                                            raise ValueError('Error')
+                                        
+                                        self.datas.append(result_data)
+                                        break
+                                    except Exception as e:
+                                        None
+                                        continue
+                            
+                            # retry get data
                             try:
+                                time.sleep(self.time_at_the_moment/2)
                                 headers = self.update_headers()
-                                retry_res = process.submit(product_page.get_data, src, headers).result(timeout=time_delay_for_break)
+                                retry_res = thread.submit(product_page.get_data, src, headers).result(timeout=time_delay_for_break)
                                 result_data = retry_res
                                 if str(result_data) == 'break':
                                     raise ValueError('Error')
@@ -170,21 +225,10 @@ class main_auto_ria:
                                 self.datas.append(result_data)
                                 break
                             except Exception as e:
-                                None
+                                self.time_change(history_time,time_up=True)
+                                print(src,e)
                                 continue
-                        try:
-                            time.sleep(1.0)
-                            headers = self.update_headers()
-                            retry_res = process.submit(product_page.get_data, src, headers).result(timeout=time_delay_for_break)
-                            result_data = retry_res
-                            if str(result_data) == 'break':
-                                raise ValueError('Error')
-                            
-                            self.datas.append(result_data)
-                            break
-                        except Exception as e:
-                            print(src,e)
-                            continue
+                time.sleep(self.time_at_the_moment/2)
 
 
 

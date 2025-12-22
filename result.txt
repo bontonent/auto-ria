@@ -1,0 +1,14 @@
+ 23%|█████▊                   | 46/200 [00:37<02:03,  1.25it/s]<Response [429]>
+https://auto.ria.com/uk/auto_mercedes-benz_s-class_39134705.html Error
+https://auto.ria.com/uk/auto_mercedes-benz_s-class_39134705.html
+ 27%|██████▊                  | 54/200 [00:44<01:59,  1.22it/s]<Response [429]>
+ 28%|██████▉                  | 55/200 [00:45<01:57,  1.23it/s]<Response [429]>
+ 72%|█████████████████▎      | 144/200 [01:56<00:44,  1.25it/s]https://auto.ria.com/uk/auto_volkswagen_tiguan_39061322.html Error
+https://auto.ria.com/uk/auto_volkswagen_tiguan_39061322.html 
+ 81%|███████████████████▍    | 162/200 [02:11<00:30,  1.25it/s]https://auto.ria.com/uk/auto_ford_edge_39305320.html 'templates'
+https://auto.ria.com/uk/auto_ford_edge_39305320.html 
+ 87%|████████████████████▉   | 174/200 [02:21<00:20,  1.24it/s]https://auto.ria.com/uk/auto_renault_koleos_39122368.html Error
+https://auto.ria.com/uk/auto_renault_koleos_39122368.html 
+ 89%|█████████████████████▎  | 178/200 [02:25<00:19,  1.15it/s]https://auto.ria.com/uk/auto_lexus_nx_39315225.html Error
+https://auto.ria.com/uk/auto_lexus_nx_39315225.html 
+

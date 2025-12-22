@@ -10,7 +10,7 @@ services:
       POSTGRES_USER: ${user} 
       POSTGRES_PASSWORD: ${password}
     ports:
-      - "${port}:5432"
+      - "${sport}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # AUTOMATIC TABLE CREATION:
@@ -29,7 +29,7 @@ services:
     environment:
       - host=db
       - database=${database}
-      - port=${sport}
+      - port=${port}
       - user=${user}
       - password=${password}
 
