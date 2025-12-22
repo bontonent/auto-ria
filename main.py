@@ -35,9 +35,9 @@ class main_auto_ria:
         #self.end_page = None
 
         # First page scraping
-        self.i_page= 0
+        self.i_page= 300
         # Finally page scraping
-        self.end_page = 50
+        self.end_page = 400
 
         # Get random User Agent
         self.base_dir = Path(__file__).resolve().parent
@@ -267,8 +267,6 @@ class main_auto_ria:
                         except Exception as e:
                             print(src, e)
 
-                        # centralized small pause in main thread only (keeps workers busy)
-                        # choose a small, bounded pause to avoid excessive blocking of main thread
                         with self._time_lock:
                             pause = max(0.01, min(1.0, self.time_at_the_moment / 4.0))
                         time.sleep(pause)

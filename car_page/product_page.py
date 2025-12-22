@@ -179,10 +179,13 @@ def get_data(url_get,headers):
                                                                     
                         # payload
                         if third_template["id"]=="photoSlider":                       
-                            buttons = third_template['component']['photoSlider']["callToAction"]["buttons"]
-                            for button in buttons:
-                                if button['id'] == 'autoPhone':
-                                    json_payload = button['actionData']
+                            try:
+                                buttons = third_template['component']['photoSlider']["callToAction"]["buttons"]
+                                for button in buttons:
+                                    if button['id'] == 'autoPhone':
+                                        json_payload = button['actionData']
+                            except:
+                                None
 
         # Title
         title = json_payload['params']['title']

@@ -1,30 +1,131 @@
-## Parsing
-**url:** https://auto.ria.com/uk/search/?indexName=auto&page=0
+# Scraping site AUTO RIA
 
-First step make 
-Create **.env**
+**url:** https://auto.ria.com/uk/search/?indexName=auto&page=0
+**catalog:** used cars
+
+
+# Step for run project
+
+## Create & Setting '.env'
+
+```.env
+database=[name database]
+user=[name user]
+password=[password database]
+port=[port for postgres]
+sport=[port for docker]
+host=[host database]
+```
+
+**Exapmple**
 ```.env
 database=autoria
 user=postgres
 password=password
 port=5432
+sport=5434
 host=localhost
 ```
+---
 
-## Prepering for run on Docker
-### run docker_compose
+## Setting for use main.py
 
-run in build environemtn
+
+### Stetting Environment
+
+#### Create & connect to Environment
+
+```bash
+python -m venv .venv
+source .../activate
+```
+
+#### Install library
+
+```bash
+pip install -r requirements.txt
+```
+
+### Database
+
+#### Connect to database
+```
+psql -h localhost -p 5432 -U [user name] [database]
+```
+
+
+#### Create database+table
+```sql
+CREATE DATABASE autoria;
+\c autoria
+\i [round to database/create_table.sql]
+```
+
+#### Change password
+```sql
+ALTER USER [user name] WITH PASSWORD 'password';
+```
+
+### Or simple run in PGadmin4
+```sql
+CREATE TABLE IF NOT EXISTS car (
+    id UUID PRIMARY KEY,
+    url TEXT,
+    title TEXT,
+    price_usd FLOAT,
+    odometer FLOAT,
+    username TEXT,
+    phone_number BIGINT, 
+    images_count INTEGER,
+    car_number VARCHAR(40),
+    car_vin VARCHAR(40),
+    datetime_found TIMESTAMP DEFAULT CURRENT_TIMESTAMP,    
+    UNIQUE(price_usd, url, phone_number)
+);
+
+CREATE TABLE IF NOT EXISTS car_images (
+    id UUID PRIMARY KEY,
+    car_id UUID REFERENCES car(id),
+    image_url TEXT UNIQUE,
+    CONSTRAINT fk_car FOREIGN KEY(car_id) REFERENCES car(id) ON DELETE CASCADE
+);
+```
+
+If **price_usd** or **url** or **phone_number** different, Item will add
+
+```sql
+UNIQUE(price_usd, url, phone_number)
+```
+
+We can run **.py** script
+
+---
+## Run in Docker
+
+### Create docker-images 
+(for this step need create **.env**)
+
+#### Run docker script
+
 ```bash
 docker-compose up --build
 ```
 
-Make public for use
+(if would like delete psql data)
+```bash
+docker-compose down -v
+```
+---
+
+
+#### Create public docker-compose
+
 ```bash
 docker build -t [user_name]/auto_ria:latest .
 docker push [user_name]/auto_ria:latest
 ```
-## Run AWS
+
+#### Run AWS
 Open
 ![alt text](./image_readme/image_7.png)
 
@@ -77,73 +178,18 @@ Review and Create.
 **Must be**
 ![alt text](./image_readme/image_9.png)
 
-## Prepering for run on Python
-
-### first step
-
-Don't forgot create and connect Environment
-```
-python -m venv .venv
-source .../activate
-```
-
-**Install library**
-```requirements.txt
-pip install -r requirements.txt
-```
-
-### Database
-#### run in pgsql
-
-Connect to database
-```
-psql -h localhost -p 5432 -U [user name] [database]
-```
-
-Create database+table
-```
-CREATE DATABASE autoria;
-\c autoria
-\i [round to database/create_table.sql]
-ALTER USER [user name] WITH PASSWORD 'password';
-```
-
-#### run in pgadmin4
-```sql
-CREATE DATABASE autoria
-CREATE TABLE IF NOT EXISTS car (
-    id UUID PRIMARY KEY,
-    url TEXT,
-    title TEXT,
-    price_usd FLOAT,
-    odometer FLOAT,
-    username TEXT,
-    phone_number BIGINT, 
-    images_count INTEGER,
-    car_number VARCHAR(40),
-    car_vin VARCHAR(40),
-    datetime_found TIMESTAMP DEFAULT CURRENT_TIMESTAMP,    
-    UNIQUE(price_usd, url)
-);
-
-CREATE TABLE IF NOT EXISTS car_images (
-    id UUID PRIMARY KEY,
-    car_id UUID REFERENCES car(id),
-    image_url TEXT UNIQUE,
-    CONSTRAINT fk_car FOREIGN KEY(car_id) REFERENCES car(id) ON DELETE CASCADE
-);
-```
+---
 
 ### Setting .py for parsing
 
-#### For parsing catalog
-![alt text](./image_readme/image_5.png)
-
+#### Setting first and last page
+(without last_page = work to last page)
+![alt text](./image_readme/image_12.png)
 #### For parsing product page
-![alt text](./image_readme/image_4.png)
+![alt text](./image_readme/image_11.png)
 
 ### My result 100 pages
-![alt text](./image_readme/image_6.png)
-- 1973/2000 (douplicate del)
-- 1.195757576 it/s
-- all time: 27m
+
+- 1993/2000 (douplicate del)
+- 4.00 it/s
+- all time: 10m
