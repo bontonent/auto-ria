@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS car (
     car_number VARCHAR(40),
     car_vin VARCHAR(40),
     datetime_found TIMESTAMP DEFAULT CURRENT_TIMESTAMP,    
-    UNIQUE(price_usd, url)
+    UNIQUE(price_usd, url, phone_number)
 );
 
 CREATE TABLE IF NOT EXISTS car_images (

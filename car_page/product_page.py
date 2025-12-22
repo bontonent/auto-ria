@@ -11,10 +11,8 @@ try:
     import phone_json
 except:
     from car_page import phone_json
-
+    
 # time
-from datetime import datetime
-import pytz
 import time
 import random
 
@@ -34,10 +32,11 @@ def get_data(url_get,headers):
         , 'images_count' : 0
         , 'car_number' : None
         , 'car_vim' : None
-        , 'datetime_found' : datetime.now(pytz.timezone("Europe/Kyiv")).strftime("%Y-%m-%d|%H:%M")
     }
 
     # preparing instruments
+    phone_number = None
+    one_retry = False
     fast_return = False
     dolar = False
     images = []
@@ -57,6 +56,7 @@ def get_data(url_get,headers):
         time.sleep(1)
         response = requests.get(url_req,headers=headers,data = json.dumps(payload))
         page_product = html.fromstring(response.content)
+        one_retry = True
         if str(response) == "<Response [429]>":
             print("<Response [429]>")
             return 'break'
@@ -89,7 +89,7 @@ def get_data(url_get,headers):
                                                 name_car = element['content']
                                         if fast_return:
                                             data['title'] = name_car
-                                            return data
+                                            return data, one_retry
                                     except:
                                         None
                                 
@@ -223,14 +223,23 @@ def get_data(url_get,headers):
             json_payload['params']["device"]= "desktop-web"
             headers["content-type"]="application/json"
             try:
-                data['phone_number'] = phone_json.get_data_json(headers,json_payload)
+                phone_number = phone_json.get_data_json(headers,json_payload)
+                if phone_number == None:
+                    time.sleep(1)
+                    phone_number = phone_json.get_data_json(headers,json_payload)
             except:
-                None    
-        return data
+                try:
+                    time.sleep(1)
+                    phone_number = phone_json.get_data_json(headers,json_payload)
+                except:
+                    None
+
+            data['phone_number'] = phone_number 
+        return data, one_retry
     
 if __name__ == "__main__":
     # url = "https://auto.ria.com/uk/auto_renault_trafic_38644737.html"
-    url = "https://auto.ria.com/uk/auto_ford_edge_39305320.html"
+    url = "https://auto.ria.com/uk/auto_audi_q7_39237458.html"
     # url = "https://auto.ria.com/uk/auto_bmw_5-series_39266704.html"
 
     headers = {

@@ -11,8 +11,6 @@ import time
 # visual load
 from tqdm import tqdm
 
-
-
 # user agent random
 import random
 from user_agents import user_agents
@@ -24,8 +22,9 @@ from database import connect
 
 # treading
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from concurrent.futures import ThreadPoolExecutor
+import threading
 
+import asyncio
 
 class main_auto_ria:
     def __init__(self):
@@ -35,9 +34,9 @@ class main_auto_ria:
         #self.end_page = None
 
         # First page scraping
-        self.i_page= 0
+        self.i_page= 30
         # Finally page scraping
-        self.end_page = 10
+        self.end_page = 40
 
         # Get random User Agent
         self.base_dir = Path(__file__).resolve().parent
@@ -59,19 +58,15 @@ class main_auto_ria:
 
         # Setting parsing product page
         max_workers=10
-
         with ThreadPoolExecutor(max_workers) as executor:
             for i in range(max_workers):
                 executor.submit(self.get_url_from_catalog,headers)
-        
         #make unique data
         unique_link_product_pages = np.unique(self.link_product_pages)
         self.link_product_pages = [[str(url.replace("\n","").strip())] for url in unique_link_product_pages]
-
         
         # parsing product_page
         self.get_data_from_product_page()
-        
         # # save data in postgres
         self.pull_data()
 
@@ -130,105 +125,86 @@ class main_auto_ria:
             
             print("Catalog page:",self.i_page-sleend_page," items get:",len(self.link_product_pages))
 
-    def time_change(self, history_time, time_up):
         
-        if time_up:
-            time_step = 0,4
-        else:
-            time_step = -0,4
-        # if a lot of history we remove change time
-        change_step = len(history_time)/100
-        if change_step > 1:
-            step_time = time_step/change_step
-            history_el = -int(change_step/10)
-        else:
-            step_time = time_step
-            history_el = -2
-        all_time_sleep_max = 10
-        self.time_at_the_moment = np.average(history_time[history_el:])+step_time
-        if all_time_sleep_max <= self.time_at_the_moment:
-            all_time_sleep_max = self.time_at_the_moment
+    def time_change(self, time_up: bool):
+        # thread-safe update of timing based on history
+        with self._time_lock:
+            step = 0.8 if time_up else -0.2
+            change_step = len(self.history_time) / 100.0
+            if change_step >= 1.0:
+                step_time = step / float(change_step)
+                history_el = max(1, int(change_step / 10))
+            else:
+                step_time = step
+                history_el = 5
+
+            all_time_sleep_max = 10.0
+            all_time_sleep_min = 0.3
+
+            slice_len = min(len(self.history_time), history_el)
+            avg_history = float(np.average(self.history_time[-slice_len:])) if slice_len > 0 else self.time_at_the_moment
+            new_time = avg_history + step_time
+            # clamp
+            new_time = min(all_time_sleep_max, max(all_time_sleep_min, new_time))
+
+            self.time_at_the_moment = new_time
+            self.history_time.append(self.time_at_the_moment)
 
 
-    
+    def _worker_with_retries(self, url):
+        max_retries = 2
+        base_backoff = 0.5
+        jitter = 0.1
+        one_retry_flag = False
+
+        for attempt in range(max_retries + 1):
+            try:
+                headers = self.update_headers()
+                result_data, worker_saw_retry = product_page.get_data(url, headers)
+                if str(result_data) == 'break':
+                    raise ValueError('break')
+                one_retry_flag = one_retry_flag or bool(worker_saw_retry)
+                return result_data, one_retry_flag
+            except Exception:
+                if attempt == max_retries:
+                    raise
+                one_retry_flag = True
+                backoff = base_backoff * (2 ** attempt) + random.uniform(0, jitter)
+                time.sleep(backoff)
+
+
     def get_data_from_product_page(self):
         headers = self.update_headers()
-        # Setting get data from product page
-
-        max_workers = 3     # speed
-        retry_work = 1      # retry work
         
-
-        # setting time sleep
-        time_delay = 2      # if delay time error thread
-        history_time = [5, 5, 5, 5]
-        self.time_at_the_moment = 5
-        
-        
-        
-        retries_work_break = 2    # for reload with error 429 how real human
-        time_delay_for_break = 0.01
-        at_the_moment_time = np.average(history_time)
-        
+        max_workers = 3                 # max workers
+        self.time_at_the_moment = 3.0   # Start point time
+        self.history_time = [3.0, 3.0, 3.0, 3.0]
+        self._time_lock = getattr(self, "_time_lock", threading.Lock()) 
 
         futures = {}
-        # Treading
-        with ThreadPoolExecutor(max_workers) as thread:
-            for page_url_ar in tqdm(self.link_product_pages):
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for page_url_ar in self.link_product_pages:
                 page_url = page_url_ar[0]
-                futures[thread.submit(product_page.get_data, page_url, headers)] = page_url
-            for fut in tqdm(as_completed(futures),total=len(futures)):
-                
+                futures[executor.submit(self._worker_with_retries, page_url)] = page_url
+
+            # main thread: consume results and apply centralized pacing
+            for fut in tqdm(as_completed(futures), total=len(futures)):
+                src = futures.get(fut, "<unknown>")
                 try:
-                    src = futures[fut]
-                    time.sleep(self.time_at_the_moment/4)
-                    result_data = fut.result(timeout=time_delay)
+                    result_data, one_retry = fut.result()  # worker handled retries/backoff
                     if str(result_data) == 'break':
-                        raise ValueError('Error')
+                        raise ValueError("break signal")
                     self.datas.append(result_data)
-                    time.sleep(self.time_at_the_moment/4)
-                    
-                    self.time_change(history_time,time_up=False)
+                    # update pacing (thread-safe)
+                    self.time_change(one_retry)
                 except Exception as e:
-                    print(src,e)
-                    # if error try again
-                    
-                    
-                    #retry work
-                    if retry_work > 0:
-                        for retry_work_n in range(retry_work):
-                            if retries_work_break > 0:    
-                                # break work for reload page
-                                for n in range(retries_work_break): # this kill reload funtion - reload retries times and kill thamselve
-                                    try:
-                                        headers = self.update_headers()
-                                        retry_res = thread.submit(product_page.get_data, src, headers).result(timeout=time_delay_for_break)
-                                        result_data = retry_res
-                                        if str(result_data) == 'break':
-                                            raise ValueError('Error')
-                                        
-                                        self.datas.append(result_data)
-                                        break
-                                    except Exception as e:
-                                        None
-                                        continue
-                            
-                            # retry get data
-                            try:
-                                time.sleep(self.time_at_the_moment/2)
-                                headers = self.update_headers()
-                                retry_res = thread.submit(product_page.get_data, src, headers).result(timeout=time_delay_for_break)
-                                result_data = retry_res
-                                if str(result_data) == 'break':
-                                    raise ValueError('Error')
-                                
-                                self.datas.append(result_data)
-                                break
-                            except Exception as e:
-                                self.time_change(history_time,time_up=True)
-                                print(src,e)
-                                continue
-                time.sleep(self.time_at_the_moment/2)
+                    print(src, e)
+
+                # centralized small pause in main thread only (keeps workers busy)
+                # choose a small, bounded pause to avoid excessive blocking of main thread
+                with self._time_lock:
+                    pause = max(0.01, min(1.0, self.time_at_the_moment / 4.0))
+                time.sleep(pause)
 
 
 

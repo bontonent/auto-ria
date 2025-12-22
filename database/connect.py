@@ -73,7 +73,7 @@ def create_row(data_pull, base_dir):
         cur.execute(f"""
             INSERT INTO car ({', '.join(car_cols)})
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (price_usd, url) DO NOTHING
+            ON CONFLICT (price_usd, url, phone_number) DO NOTHING
         """, car_vals)
 
         # Check if row was actually inserted (not skipped by ON CONFLICT)
