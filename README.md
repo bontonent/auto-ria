@@ -188,8 +188,9 @@ Review and Create.
 #### For parsing product page
 ![alt text](./image_readme/image_11.png)
 
-### My result 100 pages
+### My result (pages from 100 to 200)
+- 1995/2000 (maybe found douplicate)
+- 3.913894325 it/s 
+- all time: 8m 31s
 
-- 1993/2000 (douplicate del)
-- 4.00 it/s
-- all time: 10m
+![alt text](./image_readme/image_13.png)

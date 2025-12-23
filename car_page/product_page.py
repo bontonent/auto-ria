@@ -197,7 +197,6 @@ def get_data(url_get,headers):
                                     for button in buttons:
                                         if button['id'] == 'autoPhone':
                                             json_payload = button['actionData']
-                                            print('---')
                                 except:
                                     None
 
