@@ -179,13 +179,11 @@ def get_data(url_get,headers):
                                                                     
                         # payload
                         if third_template["id"]=="photoSlider":                       
-                            try:
-                                buttons = third_template['component']['photoSlider']["callToAction"]["buttons"]
-                                for button in buttons:
-                                    if button['id'] == 'autoPhone':
-                                        json_payload = button['actionData']
-                            except:
-                                None
+                            buttons = third_template['component']['photoSlider']["callToAction"]["buttons"]
+                            for button in buttons:
+                                if button['id'] == 'autoPhone':
+                                    json_payload = button['actionData']
+
 
         # Title
         title = json_payload['params']['title']
@@ -241,9 +239,10 @@ def get_data(url_get,headers):
         return data, one_retry
     
 if __name__ == "__main__":
-    # url = "https://auto.ria.com/uk/auto_renault_trafic_38644737.html"
-    url = "https://auto.ria.com/uk/auto_audi_q7_39237458.html"
-    # url = "https://auto.ria.com/uk/auto_bmw_5-series_39266704.html"
+    #work url = "https://auto.ria.com/uk/auto_renault_trafic_38644737.html"
+    
+    url = "https://auto.ria.com/uk/auto_daewoo_lanos_39321210.html"
+    # url = "https://auto.ria.com/uk/auto_citroen_c1_39251475.html"
 
     headers = {
         "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36",

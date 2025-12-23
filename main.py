@@ -35,9 +35,9 @@ class main_auto_ria:
         #self.end_page = None
 
         # First page scraping
-        self.i_page= 300
+        self.i_page= 100
         # Finally page scraping
-        self.end_page = 400
+        self.end_page = 200
 
         # Get random User Agent
         self.base_dir = Path(__file__).resolve().parent
