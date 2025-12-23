@@ -20,11 +20,11 @@ from pathlib import Path
 from car_page import product_page
 from database import connect
 
-# treading
+# Treading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import threading
 
-
+# Process
 from multiprocessing import Process, Queue, cpu_count
 import queue as _queue
 
@@ -137,6 +137,8 @@ class main_auto_ria:
             
             # script
             script_catalog_page = page_catalog.xpath('//script[contains(text(),"window.__PINIA__")]/text()')
+            if len(script_catalog_page) < 1:
+                continue
             script_text = script_catalog_page[0]
 
             match = re.search(r'window\.__PINIA__\s*=\s*(\{.*?\});', script_text, re.DOTALL)

@@ -43,7 +43,7 @@ def get_data(url_get,headers):
     images = []
     headers["Cookie"]='Path=/; ab_redesign=1; ab_test_new_pages=1; chk=1; ui=d97ff2002e387632; PHPLOGINSESSID=p37mu2plcdc7efpc0t79lavsk3; project_id=2; project_base_url=https://auto.ria.com/iframe-ria-login; showNewFeatures=7; _504c2=http://10.42.2.152:3000; gdpr=[]; bffState={}; slonik_utm_campaign=autoforzsu1; slonik_utm_medium=message; slonik_utm_source=main_page; PHPSESSID=eyJ3ZWJTZXNzaW9uQXZhaWxhYmxlIjp0cnVlLCJ3ZWJQZXJzb25JZCI6MCwid2ViQ2xpZW50SWQiOjM2NDkwNDA4OTYsIndlYkNsaWVudENvZGUiOjc3NTQ1MjIxMCwid2ViQ2xpZW50Q29va2llIjoiZDk3ZmYyMDAyZTM4NzYzMiIsIl9leHBpcmUiOjE3NjYxMzQzMzIwODIsIl9tYXhBZ2UiOjg2NDAwMDAwfQ==; extendedSearch=1; informerIndex=1; g_state={"i_l":0,"i_ll":1766083440692,"i_b":"XjCU8wi2Uy/XDFHLadrCIhzkLOB3kKHQigxpahrzJPA","i_e":{"enable_itp_optimization":0}}'
     headers["accept-language"] = "uk,en-US;q=0.9,en;q=0.8,ru;q=0.7"
-
+    
     # __cpo=aHR0cHM6Ly9hdXRvLnJpYS5jb20 must be
     payload = "".join([f"__cpo=aHR",str(random.randrange(0,9)),chr(random.randint(97, 122)),"HM",str(random.randrange(0,9)),"Ly",str(random.randrange(0,9)),"hdXRvLnJpYS",str(random.randrange(0,9)),chr(random.randint(97, 122)),chr(random.randint(97, 122)),str(random.randrange(0,9)),str(random.randrange(0,9))])
     url_req = "".join([url,"?",payload])
@@ -68,7 +68,7 @@ def get_data(url_get,headers):
     # code_next = "".join([str(url).replace(" ","").replace("https://auto.ria.com",""),"/"])
     # code_next_get=code_next.replace("-","_").strip()
     #skeleton = all_json_item["page"]['skeleton']
-
+    
     # payload for get number telephone
     try:
         skeleton = all_json_item["page"]
@@ -78,7 +78,10 @@ def get_data(url_get,headers):
                 json_payload = template['actionData']
     except:
         None
-
+    
+    if all_json_item["page"]["structures"]=={}:
+        print("don't have script")
+        return 'break'
     for key in all_json_item["page"]["structures"].keys():
         templates = all_json_item["page"]["structures"][key]["templates"]
         #stryctures = all_json_item["page"]#["structures"]    
@@ -199,17 +202,20 @@ def get_data(url_get,headers):
                                             json_payload = button['actionData']
                                 except:
                                     None
+       
+        if json_payload != None:
+            # Title
+            title = json_payload['params']['title']
 
-        # Title
-        title = json_payload['params']['title']
+            # User Name
+            user_name = json_payload['params']['userName']
+            if user_name == 'Ім`я не вказане':
+                user_name = None
+            
+            # Car id
+            autoid = json_payload['autoId']
 
-        # User Name
-        user_name = json_payload['params']['userName']
-        if user_name == 'Ім`я не вказане':
-            user_name = None
         
-        # Car id
-        autoid = json_payload['autoId']
         try: 
             len_images = len(images)
         except:
@@ -251,12 +257,14 @@ def get_data(url_get,headers):
                     None
 
             data['phone_number'] = phone_number 
+        #print(int(data))
         return data, one_retry
 
 
 
 if __name__ == "__main__":
     # work url
+    # url = "https://auto.ria.com/uk/auto_lexus_lx_39280206.html"
     #url = "https://auto.ria.com/uk/auto_renault_trafic_38644737.html"
     #url = "https://auto.ria.com/uk/auto_daewoo_lanos_39321210.html"
     #url = "https://auto.ria.com/uk/auto_citroen_c1_39251475.html"

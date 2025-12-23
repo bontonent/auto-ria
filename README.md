@@ -148,7 +148,6 @@ Step 2(Create recipe)
 			- Add compatible OS Ubuntu 24.04
 			- Add Definition document
 ```docker
-
 name: PullMyScraper
 schemaVersion: 1.0
 phases:
