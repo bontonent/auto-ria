@@ -124,59 +124,6 @@ docker-compose down -v
 docker build -t [user_name]/auto_ria:latest .
 docker push [user_name]/auto_ria:latest
 ```
-
-#### Run AWS
-Open
-![alt text](./image_readme/image_7.png)
-
-Create pipeline
-![alt text](./image_readme/image_8.png)
-
-Step 1 (main setting)
-- create name
-- choose schedule
-Step 2(Create recipe)
-1. Choose AMI
-2. Recipe detail
-3. Choose ubuntu LTS
-4. Setting components
-	- Amazon managed
-		- choose docker-ce-ubunutu
-	- Owned by me
-		- Create run your image
-			(click create component)
-			- Add compatible OS Ubuntu 24.04
-			- Add Definition document
-```docker
-name: PullMyScraper
-schemaVersion: 1.0
-phases:
-  - name: build
-    steps:
-      - name: PullImage
-        action: ExecuteBash
-        inputs:
-          commands:
-            - docker pull [name docker file]/auto_ria:latest
-```
-
-				Add him
-Step 3
-- default
-Step 4
-- Add name
-- IAM role
-- instance type: add t.3micro
-Step 5
-- Add KMS key
-
-Review and Create.
-### Test pipeline
-![alt text](./image_readme/image_10.png)
-
-**Must be**
-![alt text](./image_readme/image_9.png)
-
 ---
 
 ### Setting .py for parsing
